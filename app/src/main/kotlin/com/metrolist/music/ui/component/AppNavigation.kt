@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
@@ -143,6 +144,15 @@ fun AppNavigationBar(
     val contentColor = if (pureBlack) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val haptics = LocalHapticFeedback.current
     val viewConfiguration = LocalViewConfiguration.current
+    // Calm-style tabs: no pill, the selected tab simply brightens.
+    val calmItemColors =
+        NavigationBarItemDefaults.colors(
+            indicatorColor = Color.Transparent,
+            selectedIconColor = MaterialTheme.colorScheme.onSurface,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+            unselectedIconColor = contentColor.copy(alpha = 0.55f),
+            unselectedTextColor = contentColor.copy(alpha = 0.55f),
+        )
 
     NavigationBar(
         modifier = modifier,
@@ -197,6 +207,7 @@ fun AppNavigationBar(
                     // Long presses are handled via InteractionSource
                 },
                 interactionSource = interactionSource,
+                colors = calmItemColors,
                 icon = {
                     Icon(
                         painter = painterResource(id = iconRes),

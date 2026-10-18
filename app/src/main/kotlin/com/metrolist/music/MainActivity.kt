@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -155,7 +156,6 @@ import com.metrolist.music.constants.MiniPlayerBottomSpacing
 import com.metrolist.music.constants.MiniPlayerHeight
 import com.metrolist.music.constants.NavigationBarAnimationSpec
 import com.metrolist.music.constants.NavigationBarHeight
-import com.metrolist.music.constants.PauseListenHistoryKey
 import com.metrolist.music.constants.PauseSearchHistoryKey
 import com.metrolist.music.constants.PreferredLyricsProvider
 import com.metrolist.music.constants.PreferredLyricsProviderKey
@@ -872,8 +872,11 @@ class MainActivity : FragmentActivity() {
                             bottom += NavigationBarHeight
                         }
                         if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
+                        // The top bar pads for the display cutout too; match it so content
+                        // doesn't slide under the bar on phones with a tall camera cutout.
                         windowsInsets
-                            .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
+                            .only(WindowInsetsSides.Horizontal)
+                            .add(windowsInsets.union(cutoutInsets).only(WindowInsetsSides.Top))
                             .add(WindowInsets(top = AppBarHeight, bottom = bottom))
                     }
                 appBarScrollBehavior(
@@ -1013,7 +1016,8 @@ class MainActivity : FragmentActivity() {
                 val currentTitleRes =
                     remember(navBackStackEntry) {
                         when (navBackStackEntry?.destination?.route) {
-                            Screens.Home.route -> R.string.home
+                            // Home greets the listener itself, so the bar stays empty.
+                            Screens.Home.route -> null
                             Screens.Search.route -> R.string.search
                             Screens.Library.route -> R.string.filter_library
                             Screens.ListenTogether.route -> R.string.together
@@ -1023,12 +1027,6 @@ class MainActivity : FragmentActivity() {
 
                 var showAccountDialog by remember { mutableStateOf(false) }
 
-                val pauseListenHistory by rememberPreference(PauseListenHistoryKey, defaultValue = false)
-                val eventCount by database.eventCount().collectAsStateWithLifecycle(initialValue = 0)
-                val showHistoryButton =
-                    remember(pauseListenHistory, eventCount) {
-                        !(pauseListenHistory && eventCount == 0)
-                    }
 
                 val baseBg = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer
                 val artistNameAliases by ArtistNameAliases.aliases.collectAsStateWithLifecycle()
@@ -1067,28 +1065,6 @@ class MainActivity : FragmentActivity() {
                                             )
                                         },
                                         actions = {
-                                            if (showHistoryButton) {
-                                                IconButton(onClick = { navController.navigate("history") }) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.history),
-                                                        contentDescription = stringResource(R.string.history),
-                                                    )
-                                                }
-                                            }
-                                            IconButton(onClick = { navController.navigate("stats") }) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.stats),
-                                                    contentDescription = stringResource(R.string.stats),
-                                                )
-                                            }
-                                            if (listenTogetherInTopBar) {
-                                                IconButton(onClick = { navController.navigate("listen_together_from_topbar") }) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.group_outlined),
-                                                        contentDescription = stringResource(R.string.together),
-                                                    )
-                                                }
-                                            }
                                             IconButton(onClick = { showAccountDialog = true }) {
                                                 BadgedBox(badge = {
                                                     if (latestVersionName != BuildConfig.BASE_VERSION_NAME) {
@@ -1416,7 +1392,6 @@ class MainActivity : FragmentActivity() {
                         AccountSettingsDialog(
                             onDismiss = {
                                 showAccountDialog = false
-                                homeViewModel.refresh()
                             },
                             latestVersionName = latestVersionName,
                         )

@@ -32,6 +32,9 @@ import com.metrolist.music.constants.*
 import com.metrolist.music.di.ApplicationScope
 import com.metrolist.music.extensions.toEnum
 import com.metrolist.music.extensions.toInetSocketAddress
+import androidx.compose.ui.graphics.toArgb
+import com.metrolist.music.ui.screens.settings.DarkMode
+import com.metrolist.music.ui.theme.DefaultThemeColor
 import com.metrolist.music.utils.CrashHandler
 import com.metrolist.music.utils.ArtistNameAliases
 import com.metrolist.music.utils.InnerTubeXPlayer
@@ -66,6 +69,19 @@ class App :
     @ApplicationScope
     lateinit var applicationScope: CoroutineScope
 
+    // Starts the app on the Calm look; later changes in Settings are left alone.
+    private suspend fun applyCalmDefaultsOnce() {
+        if (dataStore.data.first()[CalmDefaultsAppliedKey] == true) return
+        safeDataStoreEdit { prefs ->
+            prefs[DarkModeKey] = DarkMode.ON.name
+            prefs[DynamicThemeKey] = false
+            prefs[SelectedThemeColorKey] = DefaultThemeColor.toArgb()
+            prefs[PlayerBackgroundStyleKey] = PlayerBackgroundStyle.BLUR.name
+            prefs[CropAlbumArtKey] = true
+            prefs[CalmDefaultsAppliedKey] = true
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -90,6 +106,10 @@ class App :
         // Plant logging before extraction services initialize.
         Timber.plant(Timber.DebugTree())
         InnerTubeXPlayer.initialize(this)
+
+        applicationScope.launch(Dispatchers.IO) {
+            applyCalmDefaultsOnce()
+        }
 
         // Pre-read Coil cache size on background to avoid runBlocking in newImageLoader
         applicationScope.launch(Dispatchers.IO) {
