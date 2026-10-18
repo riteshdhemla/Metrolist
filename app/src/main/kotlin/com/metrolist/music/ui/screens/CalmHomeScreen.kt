@@ -49,10 +49,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.music.LocalListenTogetherManager
-import com.metrolist.music.LocalNavController
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
@@ -61,8 +60,8 @@ import com.metrolist.music.ui.component.LocalMenuState
 import com.metrolist.music.ui.component.YouTubeGridItem
 import com.metrolist.music.ui.component.shimmer.GridItemPlaceHolder
 import com.metrolist.music.ui.component.shimmer.ShimmerHost
-import com.metrolist.music.ui.menu.YouTubePlaylistMenu
-import com.metrolist.music.utils.SearchRoutes
+import com.metrolist.music.models.toMediaMetadata
+import com.metrolist.music.ui.menu.YouTubeSongMenu
 import com.metrolist.music.viewmodels.CalmHomeViewModel
 import com.metrolist.music.viewmodels.CalmMood
 import java.time.LocalTime
@@ -70,25 +69,30 @@ import java.time.LocalTime
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CalmHomeScreen(viewModel: CalmHomeViewModel = hiltViewModel()) {
-    val navController = LocalNavController.current
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val listenTogetherManager = LocalListenTogetherManager.current
     val isListenTogetherGuest = listenTogetherManager?.let { it.isInRoom && !it.isHost } ?: false
     val scope = rememberCoroutineScope()
+    val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
 
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val tracks by viewModel.tracks.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val pullRefreshState = rememberPullToRefreshState()
 
-    val playMood: (CalmMood) -> Unit = { mood ->
-        val playlist = playlists[mood]?.randomOrNull()
-        when {
-            isListenTogetherGuest -> Unit
-            playlist != null -> playerConnection.playQueue(YouTubeQueue(playlist.shufflePlayEndpoint()))
-            else -> navController.navigate(SearchRoutes.resultRoute(mood.queries.first()))
+    // Starting from a single video gives an endless radio of similar tracks.
+    val playRadio: (SongItem) -> Unit = { song ->
+        if (!isListenTogetherGuest) {
+            playerConnection.playQueue(YouTubeQueue(WatchEndpoint(videoId = song.id), song.toMediaMetadata()))
         }
+    }
+
+    val playMood: (CalmMood) -> Unit = { mood ->
+        val moodTracks = tracks[mood].orEmpty()
+        val seed = moodTracks.firstOrNull { it.id in mood.seedVideoIds } ?: moodTracks.randomOrNull()
+        if (seed != null) playRadio(seed)
     }
 
     PullToRefreshBox(
@@ -120,32 +124,38 @@ fun CalmHomeScreen(viewModel: CalmHomeViewModel = hiltViewModel()) {
                 }
 
                 item(key = "playlists_${mood.name}") {
-                    val moodPlaylists = playlists[mood]
-                    if (moodPlaylists == null) {
+                    val moodTracks = tracks[mood]
+                    if (moodTracks == null) {
                         ShimmerHost(horizontalAlignment = Alignment.Start) {
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                                 userScrollEnabled = false,
                             ) {
-                                items(4) { GridItemPlaceHolder(thumbnailShape = RoundedCornerShape(16.dp)) }
+                                items(3) { GridItemPlaceHolder(thumbnailShape = RoundedCornerShape(16.dp)) }
                             }
                         }
                     } else {
                         LazyRow(contentPadding = PaddingValues(horizontal = 8.dp)) {
-                            items(moodPlaylists, key = { "${mood.name}_${it.id}" }) { playlist ->
+                            items(moodTracks, key = { "${mood.name}_${it.id}" }) { song ->
                                 YouTubeGridItem(
-                                    item = playlist,
+                                    item = song,
                                     coroutineScope = scope,
-                                    thumbnailRatio = 1f,
+                                    isActive = song.id == mediaMetadata?.id,
+                                    isPlaying = isPlaying,
                                     modifier =
                                         Modifier.combinedClickable(
-                                            onClick = { navController.navigate("online_playlist/${playlist.id}") },
+                                            onClick = {
+                                                if (song.id == mediaMetadata?.id) {
+                                                    playerConnection.togglePlayPause()
+                                                } else {
+                                                    playRadio(song)
+                                                }
+                                            },
                                             onLongClick = {
                                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                 menuState.show {
-                                                    YouTubePlaylistMenu(
-                                                        playlist = playlist,
-                                                        coroutineScope = scope,
+                                                    YouTubeSongMenu(
+                                                        song = song,
                                                         onDismiss = menuState::dismiss,
                                                     )
                                                 }
@@ -254,6 +264,3 @@ private fun MoodBanner(
         }
     }
 }
-
-private fun PlaylistItem.shufflePlayEndpoint(): WatchEndpoint =
-    shuffleEndpoint ?: playEndpoint ?: WatchEndpoint(playlistId = id.removePrefix("VL"))

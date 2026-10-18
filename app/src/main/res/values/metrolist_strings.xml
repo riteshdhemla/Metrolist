@@ -999,14 +999,16 @@
     <string name="calm_greeting_evening">Good evening</string>
     <string name="calm_greeting_subtitle">Take a breath. What do you need right now?</string>
     <string name="calm_mood_deep_focus">Deep Focus</string>
-    <string name="calm_mood_deep_focus_desc">Quiet instrumentals for work and study</string>
+    <string name="calm_mood_deep_focus_desc">Ambient, lofi and sitar for deep work</string>
     <string name="calm_mood_flow_state">Flow State</string>
-    <string name="calm_mood_flow_state_desc">Low cortisol flute and gentle rhythms</string>
+    <string name="calm_mood_flow_state_desc">Healing bansuri to reset cortisol</string>
     <string name="calm_mood_bollywood">Bollywood Instrumental</string>
     <string name="calm_mood_bollywood_desc">Familiar melodies, mostly without words</string>
     <string name="calm_mood_devotional">Devotional</string>
-    <string name="calm_mood_devotional_desc">Bhajans, mantras and kirtan</string>
+    <string name="calm_mood_devotional_desc">Shiva mantras, stotras and bhajans</string>
     <string name="calm_mood_affirmations">Positive Affirmations</string>
-    <string name="calm_mood_affirmations_desc">Kind words over soft music</string>
+    <string name="calm_mood_affirmations_desc">Positive energy, flute and calm</string>
+    <string name="calm_mood_hopeful_anthems">Hopeful Anthems</string>
+    <string name="calm_mood_hopeful_anthems_desc">Coldplay and kindred sounds</string>
     <string name="calm_play_mood">Play %1$s</string>
 </resources>
