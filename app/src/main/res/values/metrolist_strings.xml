@@ -1010,5 +1010,10 @@
     <string name="calm_mood_affirmations_desc">Positive energy, flute and calm</string>
     <string name="calm_mood_hopeful_anthems">Hopeful Anthems</string>
     <string name="calm_mood_hopeful_anthems_desc">Coldplay and kindred sounds</string>
+    <string name="calm_take_a_breath">Take a breath</string>
+    <string name="calm_breathe_in">Breathe in</string>
+    <string name="calm_breathe_out">Breathe out</string>
+    <string name="calm_for_this_moment">For this moment</string>
+    <string name="calm_play">Play</string>
     <string name="calm_play_mood">Play %1$s</string>
 </resources>

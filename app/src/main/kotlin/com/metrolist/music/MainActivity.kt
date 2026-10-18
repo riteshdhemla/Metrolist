@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -871,8 +872,11 @@ class MainActivity : FragmentActivity() {
                             bottom += NavigationBarHeight
                         }
                         if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
+                        // The top bar pads for the display cutout too; match it so content
+                        // doesn't slide under the bar on phones with a tall camera cutout.
                         windowsInsets
-                            .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
+                            .only(WindowInsetsSides.Horizontal)
+                            .add(windowsInsets.union(cutoutInsets).only(WindowInsetsSides.Top))
                             .add(WindowInsets(top = AppBarHeight, bottom = bottom))
                     }
                 appBarScrollBehavior(
@@ -1012,7 +1016,8 @@ class MainActivity : FragmentActivity() {
                 val currentTitleRes =
                     remember(navBackStackEntry) {
                         when (navBackStackEntry?.destination?.route) {
-                            Screens.Home.route -> R.string.home
+                            // Home greets the listener itself, so the bar stays empty.
+                            Screens.Home.route -> null
                             Screens.Search.route -> R.string.search
                             Screens.Library.route -> R.string.filter_library
                             Screens.ListenTogether.route -> R.string.together
