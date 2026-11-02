@@ -1,0 +1,46 @@
+name: Calm Build
+
+# Builds the unsigned Metrolist Calm FOSS release (application ID com.metrolist.music.calm) on
+# GitHub-hosted runners, for branches of this fork that the upstream workflows don't cover. The APK
+# is signed outside CI with the Calm key, so no signing secrets are needed here.
+on:
+  push:
+    branches: ["fix-locked-boot-crash", "calm-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build unsigned FOSS release
+        run: |
+          chmod +x gradlew
+          ./gradlew --console=plain assembleFossRelease --warning-mode summary -x lint -x lintFossRelease
+        env:
+          METROLIST_APPLICATION_ID: com.metrolist.music.calm
+          METROLIST_APP_NAME: Metrolist Calm
+          METROLIST_BUILD_COMMIT: ${{ github.sha }}
+          PULL_REQUEST: "false"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metrolist-calm-unsigned
+          path: app/build/outputs/apk/foss/release/*.apk
+          if-no-files-found: error
