@@ -9,7 +9,10 @@ import android.app.ActivityManager
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Process
 import android.widget.Toast
@@ -33,6 +36,8 @@ import com.metrolist.music.di.ApplicationScope
 import com.metrolist.music.extensions.toEnum
 import com.metrolist.music.extensions.toInetSocketAddress
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.content.ContextCompat
+import androidx.core.os.UserManagerCompat
 import com.metrolist.music.ui.screens.settings.DarkMode
 import com.metrolist.music.ui.theme.DefaultThemeColor
 import com.metrolist.music.utils.CrashHandler
@@ -59,6 +64,7 @@ import java.net.Authenticator
 import java.net.PasswordAuthentication
 import java.net.Proxy
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -91,6 +97,43 @@ class App :
 
         // Install crash handler first
         CrashHandler.install(this)
+
+        // The alarm reschedule receiver is direct-boot aware, so after a reboot the system can start
+        // this process before the user unlocks. Credential-encrypted storage (SharedPreferences,
+        // DataStore, Room) is unavailable until then, and touching it throws. Defer everything that
+        // needs it until ACTION_USER_UNLOCKED; the receiver itself only uses device-protected storage.
+        if (!UserManagerCompat.isUserUnlocked(this)) {
+            deferUntilUnlocked()
+            return
+        }
+        initializeAfterUnlock()
+    }
+
+    private val unlockedInitDone = AtomicBoolean(false)
+
+    private fun deferUntilUnlocked() {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                runCatching { unregisterReceiver(this) }
+                initializeAfterUnlock()
+            }
+        }
+        ContextCompat.registerReceiver(
+            this,
+            receiver,
+            IntentFilter(Intent.ACTION_USER_UNLOCKED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        // Unlock may have landed between the check and the registration.
+        if (UserManagerCompat.isUserUnlocked(this)) {
+            runCatching { unregisterReceiver(receiver) }
+            initializeAfterUnlock()
+        }
+    }
+
+    private fun initializeAfterUnlock() {
+        if (!unlockedInitDone.compareAndSet(false, true)) return
+
         ArtistNameAliases.initialize(this)
 
         // preferencesDataStore uses filesDir/datastore; proactive mkdir reduces failures on odd ROM states
