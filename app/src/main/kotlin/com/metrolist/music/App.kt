@@ -9,6 +9,7 @@ import android.app.ActivityManager
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ComponentCallbacks2
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -43,6 +44,7 @@ import com.metrolist.music.ui.theme.DefaultThemeColor
 import com.metrolist.music.utils.CrashHandler
 import com.metrolist.music.utils.ArtistNameAliases
 import com.metrolist.music.utils.InnerTubeXPlayer
+import com.metrolist.music.utils.LowRamDevice
 import com.metrolist.music.utils.dataStore
 import com.metrolist.music.utils.safeDataStoreEdit
 import com.metrolist.music.utils.reportException
@@ -371,7 +373,9 @@ class App :
                 memoryCache {
                     MemoryCache
                         .Builder()
-                        .maxSizePercent(context, 0.15)
+                        // 15% of the heap limit on normal phones; on low-RAM devices the
+                        // whole system is short, so keep fewer decoded bitmaps around.
+                        .maxSizePercent(context, if (LowRamDevice.isLowRam(context)) 0.08 else 0.15)
                         .build()
                 }
                 if (cacheSize == 0) {
@@ -430,6 +434,27 @@ class App :
                 }
             }
             Timber.d("forgetAccount: Logout process complete")
+        }
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (!isMainProcess()) return
+        @Suppress("DEPRECATION")
+        val underPressure =
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
+                level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+                level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL
+        if (!underPressure) return
+        Timber.d("onTrimMemory level=$level: dropping image memory cache and PoToken WebView")
+        // Decoded bitmaps are re-read from the disk cache on demand.
+        runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
+        // The WebView renderer is the largest single allocation outside our heap; the system
+        // kills it under pressure anyway, so give it back first and keep the player process alive.
+        if (::applicationScope.isInitialized) {
+            applicationScope.launch {
+                runCatching { InnerTubeXPlayer.releasePoTokenWebView() }
+            }
         }
     }
 

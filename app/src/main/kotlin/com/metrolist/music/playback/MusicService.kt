@@ -65,6 +65,7 @@ import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERR
 import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import com.metrolist.music.utils.LowRamDevice
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.PlayerMessage
@@ -1323,9 +1324,16 @@ class MusicService :
                     // Start playback once ~750ms is buffered (media3's default is 1000ms) so first
                     // audio is audible a touch sooner. min/max/after-rebuffer match the media3 1.x
                     // defaults (50s / 50s / 2000ms) so buffering and post-stall recovery are unchanged.
+                    // On low-RAM devices also cap the buffer at 4 MB (media3 reserves ~13 MB for
+                    // audio by default); at streaming bitrates that is still minutes of audio.
                     DefaultLoadControl
                         .Builder()
                         .setBufferDurationsMs(50_000, 50_000, 750, 2_000)
+                        .apply {
+                            if (LowRamDevice.isLowRam(this@MusicService)) {
+                                setTargetBufferBytes(4 * 1024 * 1024)
+                            }
+                        }
                         .build(),
                 )
                 .setHandleAudioBecomingNoisy(true)

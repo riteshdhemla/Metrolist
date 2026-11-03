@@ -174,8 +174,17 @@ object InnerTubeXPlayer {
         AndroidPlayerConfigRepository(requireNotNull(applicationContext) { "InnerTubeXPlayer is not initialized" })
     }
 
-    private val poTokenGenerator: PoTokenGenerator by lazy {
+    private val poTokenGeneratorDelegate = lazy {
         PoTokenGenerator(requireNotNull(applicationContext) { "InnerTubeXPlayer is not initialized" })
+    }
+    private val poTokenGenerator: PoTokenGenerator by poTokenGeneratorDelegate
+
+    /**
+     * Tears down the PoToken WebView (its sandboxed renderer holds ~80 MB) if one exists. The next
+     * playback request recreates it, at the cost of a few seconds' spin-up. Never creates one.
+     */
+    suspend fun releasePoTokenWebView() {
+        if (poTokenGeneratorDelegate.isInitialized()) poTokenGenerator.close()
     }
 
     private val tokenProvider =
